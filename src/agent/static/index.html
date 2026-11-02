@@ -190,9 +190,18 @@ async function agentChat(message) {
       while ((idx = buf.indexOf("\n\n")) >= 0) {
         const frame = buf.slice(0, idx);
         buf = buf.slice(idx + 2);
+        // 以 : 开头的是 SSE 注释（服务端用它发心跳保活），直接跳过
+        if (frame.startsWith(":")) continue;
         const line = frame.startsWith("data: ") ? frame.slice(6) : frame;
         if (!line) continue;
-        const evt = JSON.parse(line);
+        let evt;
+        try {
+          evt = JSON.parse(line);
+        } catch (e) {
+          // 单帧坏掉不该拖垮整段对话
+          console.warn("跳过无法解析的帧:", line);
+          continue;
+        }
         if (statusEl) { statusEl.remove(); statusEl = null; }
         if (evt.type === "session") {
           sessionId = evt.session_id;
