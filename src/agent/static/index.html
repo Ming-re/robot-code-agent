@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>机器人指令 Agent</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --border: #2a2f3a;
+    --text: #e6e9ef; --muted: #8b93a3; --accent: #4c9aff; --ok: #2ecc71; --no: #e74c3c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: "Segoe UI", "Microsoft YaHei", sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 17px; font-weight: 600; }
+  header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  #chat { flex: 1; overflow-y: auto; padding: 20px; max-width: 900px; width: 100%; margin: 0 auto; }
+  .msg { margin-bottom: 16px; display: flex; }
+  .msg.user { justify-content: flex-end; }
+  .bubble { max-width: 82%; padding: 10px 14px; border-radius: 10px; line-height: 1.6; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .msg.agent .bubble { background: var(--panel); border: 1px solid var(--border); border-top-left-radius: 2px; }
+  .msg.user .bubble { background: #1d3a5f; border: 1px solid #2b4d78; border-top-right-radius: 2px; }
+  .msg .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .msg.user .label { text-align: right; }
+  .qa-input { display: block; width: 100%; margin: 8px 0; padding: 9px 12px; background: #0d0f13; color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; }
+  .qa-input:focus { outline: none; border-color: var(--accent); }
+  button { background: var(--accent); color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  button:hover { filter: brightness(1.12); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  button.ok { background: var(--ok); }
+  button.no { background: var(--no); }
+  #composer { padding: 14px 20px; border-top: 1px solid var(--border); max-width: 900px; width: 100%; margin: 0 auto; }
+  #req-input { width: 100%; min-height: 90px; padding: 10px 12px; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-family: inherit; resize: vertical; }
+  #req-input:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+  pre.code { background: #0b0d11; border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-x: auto; font-size: 13px; line-height: 1.55; font-family: Consolas, "Courier New", monospace; white-space: pre; }
+  .meta { font-size: 12px; color: var(--muted); margin: 6px 0; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .feedback-box { width: 100%; margin-top: 8px; padding: 8px 10px; background: #0d0f13; color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 13px; }
+</style>
+</head>
+<body>
+<header><span class="dot"></span><h1>机器人指令 Agent</h1></header>
+
+<div id="chat"></div>
+
+<div id="composer">
+  <textarea id="req-input" placeholder="描述你的机器人动作逻辑需求，例如：机器人和 PLC 通过 Modbus 寄存器交互信号，机器人循环接收 PLC 指令执行取料、视觉检测、抛料、放料流程……"></textarea>
+  <div class="row">
+    <button id="btn-send">发送</button>
+    <button id="btn-reset" class="secondary">新会话</button>
+  </div>
+</div>
+
+<script>
+let sessionId = null;
+const chat = document.getElementById("chat");
+const reqInput = document.getElementById("req-input");
+const btnSend = document.getElementById("btn-send");
+const btnReset = document.getElementById("btn-reset");
+
+function addMsg(role, text) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg " + role;
+  const box = document.createElement("div");
+  box.innerHTML = '<div class="label">' + (role === "user" ? "我" : "Agent") + '</div>';
+  const b = document.createElement("div");
+  b.className = "bubble";
+  b.textContent = text;
+  box.appendChild(b);
+  wrap.appendChild(box);
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+  return b;
+}
+
+function addAgentBubble() {
+  const wrap = document.createElement("div");
+  wrap.className = "msg agent";
+  const box = document.createElement("div");
+  box.innerHTML = '<div class="label">Agent</div>';
+  const b = document.createElement("div");
+  b.className = "bubble";
+  box.appendChild(b);
+  wrap.appendChild(box);
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+  return b;
+}
+
+function renderThought(text) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg agent";
+  const box = document.createElement("div");
+  box.innerHTML = '<div class="label">Agent 思考</div>';
+  const b = document.createElement("div");
+  b.className = "bubble";
+  b.style.cssText = "font-style:italic;color:#aeb8c8;font-size:13px";
+  b.textContent = text;
+  box.appendChild(b);
+  wrap.appendChild(box);
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function renderTool(name, args) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg agent";
+  const box = document.createElement("div");
+  box.innerHTML = '<div class="label">工具调用</div>';
+  const b = document.createElement("div");
+  b.className = "bubble";
+  b.style.cssText = "font-size:13px;color:#8fc3ff;padding:6px 12px";
+  b.textContent = "🔧 " + name + (args && Object.keys(args).length
+    ? " " + JSON.stringify(args).slice(0, 140) : "");
+  box.appendChild(b);
+  wrap.appendChild(box);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function showStatus(text) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg agent";
+  const box = document.createElement("div");
+  box.innerHTML = '<div class="label">Agent</div>';
+  const b = document.createElement("div");
+  b.className = "bubble";
+  b.innerHTML = '<span style="font-size:13px;color:var(--muted)"><span class="spinner"></span>' + text + '</span>';
+  box.appendChild(b);
+  wrap.appendChild(box);
+  chat.scrollTop = chat.scrollHeight;
+  return wrap;
+}
+
+/* ---------- 追问 ---------- */
+function renderClarify(questions) {
+  const box = addAgentBubble();
+  const intro = document.createElement("div");
+  intro.textContent = "需求还缺少以下信息，请补充（可留空，Agent 将用默认假设）：";
+  box.appendChild(intro);
+  const inputs = questions.map(q => {
+    const div = document.createElement("div");
+    const label = document.createElement("div");
+    label.style.cssText = "margin-top:10px;color:#c8d0dc";
+    label.textContent = "· " + q;
+    const input = document.createElement("input");
+    input.className = "qa-input";
+    input.placeholder = "填写补充信息…";
+    div.appendChild(label);
+    div.appendChild(input);
+    box.appendChild(div);
+    return input;
+  });
+  const row = document.createElement("div");
+  row.className = "row";
+  const btn = document.createElement("button");
+  btn.textContent = "提交回答";
+  btn.onclick = () => {
+    row.remove();
+    const answers = inputs.map(i => i.value.trim() || "未提供").join("\n");
+    addMsg("user", answers);
+    agentChat(answers);
+  };
+  row.appendChild(btn);
+  box.appendChild(row);
+}
+
+/* ---------- Agent 轨迹流 ---------- */
+async function agentChat(message) {
+  let statusEl = showStatus("Agent 执行中…");
+  let codePre = null;
+  let codeText = "";
+  let finished = false;
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, message: message }),
+    });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done: rd, value } = await reader.read();
+      if (rd) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const frame = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        const line = frame.startsWith("data: ") ? frame.slice(6) : frame;
+        if (!line) continue;
+        const evt = JSON.parse(line);
+        if (statusEl) { statusEl.remove(); statusEl = null; }
+        if (evt.type === "session") {
+          sessionId = evt.session_id;
+        } else if (evt.type === "thought") {
+          renderThought(evt.content);
+        } else if (evt.type === "tool") {
+          renderTool(evt.name, evt.args);
+        } else if (evt.type === "ask") {
+          renderClarify(evt.questions);
+        } else if (evt.type === "delta") {
+          if (!codePre) {
+            const box = addAgentBubble();
+            const t = document.createElement("div");
+            t.style.cssText = "font-weight:600;margin-bottom:6px";
+            t.textContent = "正在生成代码…";
+            box.appendChild(t);
+            codePre = document.createElement("pre");
+            codePre.className = "code";
+            box.appendChild(codePre);
+          }
+          codeText += evt.text;
+          codePre.textContent = codeText;
+          chat.scrollTop = chat.scrollHeight;
+        } else if (evt.type === "fixed") {
+          codeText = evt.code;
+          if (codePre) codePre.textContent = codeText;
+          const note = document.createElement("div");
+          note.className = "meta";
+          note.textContent = "Agent 已自动修正不合规指令";
+          if (codePre) codePre.parentElement.appendChild(note);
+          chat.scrollTop = chat.scrollHeight;
+        } else if (evt.type === "done") {
+          finished = true;
+          renderConfirm(codePre, evt.summary, evt.tokens);
+        } else if (evt.type === "message") {
+          addMsg("agent", evt.content);
+        } else if (evt.type === "error") {
+          addMsg("agent", evt.message);
+        }
+      }
+    }
+    if (statusEl) statusEl.remove();
+    if (!finished) {
+      addMsg("agent", "（Agent 已暂停，等待你的输入）");
+    }
+  } catch (e) {
+    if (statusEl) statusEl.remove();
+    addMsg("agent", "出错: " + e.message);
+  }
+}
+
+function renderConfirm(codePre, summary, tokens) {
+  const box = codePre ? codePre.parentElement : addAgentBubble();
+  if (codePre) {
+    codePre.previousSibling.textContent = "生成的代码（请确认是否保存）：";
+  }
+  if (summary) {
+    const s = document.createElement("div");
+    s.className = "meta";
+    s.textContent = "交付说明: " + summary;
+    box.appendChild(s);
+  }
+  if (tokens) {
+    const t = document.createElement("div");
+    t.className = "meta";
+    t.textContent = "tokens: prompt " + tokens.prompt + " / completion " + tokens.completion;
+    box.appendChild(t);
+  }
+  const row = document.createElement("div");
+  row.className = "row";
+  const yes = document.createElement("button");
+  yes.className = "ok";
+  yes.textContent = "Y 确认保存";
+  const no = document.createElement("button");
+  no.className = "no";
+  no.textContent = "N 需要修改";
+  row.appendChild(yes);
+  row.appendChild(no);
+  box.appendChild(row);
+
+  yes.onclick = async () => {
+    yes.disabled = no.disabled = true;
+    try {
+      const r = await fetch("/api/code/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, accept: true }),
+      }).then(x => x.json());
+      addMsg("agent", "代码已保存: " + r.path);
+      sessionId = null;
+    } catch (e) {
+      addMsg("agent", "保存失败: " + e.message);
+    }
+  };
+  no.onclick = () => {
+    row.remove();
+    const fb = document.createElement("textarea");
+    fb.className = "feedback-box";
+    fb.placeholder = "填写修改意见后重新生成（留空则放弃本次代码）…";
+    box.appendChild(fb);
+    const row2 = document.createElement("div");
+    row2.className = "row";
+    const regen = document.createElement("button");
+    regen.textContent = "提交修改意见";
+    regen.onclick = () => {
+      row2.remove();
+      if (!fb.value.trim()) {
+        addMsg("agent", "会话结束，代码未保存");
+        sessionId = null;
+        return;
+      }
+      addMsg("user", "修改意见: " + fb.value.trim());
+      agentChat("用户修改意见: " + fb.value.trim());
+    };
+    row2.appendChild(regen);
+    box.appendChild(row2);
+  };
+}
+
+/* ---------- 入口 ---------- */
+btnSend.onclick = () => {
+  const req = reqInput.value.trim();
+  if (!req) return;
+  addMsg("user", req);
+  reqInput.value = "";
+  agentChat(req);
+};
+
+btnReset.onclick = () => {
+  sessionId = null;
+  chat.innerHTML = "";
+  addMsg("agent", "新会话已开始，请输入需求。Agent 会自主检索、追问并生成代码。");
+};
+
+addMsg("agent", "你好！请描述机器人动作逻辑需求。我会自主分析需求、检索指令、按需追问，生成代码后自检并交付。");
+</script>
+</body>
+</html>
