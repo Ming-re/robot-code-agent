@@ -1,0 +1,22 @@
+pymupdf>=1.24
+
+# Milvus 客户端。MilvusClient / AnnSearchRequest / alter_alias 都是 2.3 之后才有的
+pymilvus>=2.3
+
+# bge-m3 三路编码
+FlagEmbedding>=1.2
+sentencepiece
+torch
+
+# 服务
+fastapi
+uvicorn
+
+# 大模型调用，用的是 openai 1.x 的 AsyncOpenAI
+openai>=1.0
+pydantic>=2.0
+
+# Agent 图，interrupt / Command 需要 0.2 以上
+langgraph>=0.2
+langchain-core
+langchain-openai

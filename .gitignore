@@ -1,0 +1,31 @@
+# 模型太大了，自己下
+models/
+
+# 公司内部资料，绝对不能提交
+data/raw/
+main.prg
+
+# 从手册派生出来的东西，同样是内部资料
+data/chunks/
+data/generated/
+data/alias_history.json
+
+# 工艺需求样本（写的是我自己那台机器的流程）
+data/demo_requirement.txt
+
+# 运行产物
+eval/reports/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# 编辑器 / 工具
+.idea/
+.vscode/
+.claude/
+.mcp.json
