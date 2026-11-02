@@ -136,25 +136,37 @@ class MilvusStore:
     def load(self, name=None):
         self.client.load_collection(name or self.collection_name)
 
-    def count(self, name=None):
-        """集合行数。
+    def flush(self, name=None):
+        """把内存里的数据落盘并触发建索引。
 
-        先 load 并重试几次: 刚写入的数据在 Bounded 一致性下可能短暂不可见。
+        少了这一步，upsert 之后立刻查会拿到 0 条：Bounded 一致性下数据还没可见，
+        索引也还在后台建。187 条实测要等十几秒才查得到，flush 之后是立刻可见。
         """
+        return self.client.flush(name or self.collection_name)
+
+    def count(self, name=None):
+        """集合行数。先 flush 再 load，然后轮询到能查到为止。"""
         target = name or self.collection_name
         try:
+            self.client.flush(target)
             self.client.load_collection(target)
         except Exception:
             pass
-        for _ in range(5):
+        for _ in range(10):
             try:
                 result = self.client.query(
                     target, filter="", output_fields=["count(*)"])
+                if result and result[0]["count(*)"]:
+                    return result[0]["count(*)"]
             except Exception:
-                result = []
-            if result:
-                return result[0]["count(*)"]
-            time.sleep(2)
+                pass
+            try:
+                rows = self.client.get_collection_stats(target).get("row_count", 0)
+                if rows:
+                    return rows
+            except Exception:
+                pass
+            time.sleep(3)
         return 0
 
     def content_hash_map(self, name=None):

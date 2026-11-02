@@ -114,6 +114,7 @@ def main():
             for i, chunk in enumerate(plan["to_write"])
         ]
         store.upsert(rows, name=target)
+        store.flush(target)
         print(f"upsert 完成: {len(rows)} 条")
 
     if plan["to_delete"]:
