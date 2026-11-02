@@ -149,7 +149,9 @@ def main():
     else:
         print("\n（没有 baseline，本次结果可用 --update-baseline 作为基线）")
 
-    misses = [d for d in report["details"] if d["first_hit_rank"] is None]
+    # 负例的 expected 是空的，不应该算 miss
+    misses = [d for d in report["details"]
+              if d["expected"] and d["first_hit_rank"] is None]
     if misses:
         print(f"\n完全没命中的 query（{len(misses)} 条，需逐条看是否标注错了）:")
         for d in misses[:10]:

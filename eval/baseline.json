@@ -1,0 +1,269 @@
+{
+  "overall": {
+    "n": 22,
+    "recall@1": 0.6364,
+    "recall@5": 0.8636,
+    "recall@10": 0.9091,
+    "mrr": 0.7405,
+    "coverage@5": 0.8333,
+    "miss": 2
+  },
+  "by_type": {
+    "multi": {
+      "n": 2,
+      "recall@1": 0.5,
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr": 0.6667,
+      "coverage@5": 0.6667,
+      "miss": 0
+    },
+    "paraphrase": {
+      "n": 14,
+      "recall@1": 0.5714,
+      "recall@5": 0.8571,
+      "recall@10": 0.8571,
+      "mrr": 0.7024,
+      "coverage@5": 0.8571,
+      "miss": 2
+    },
+    "single": {
+      "n": 6,
+      "recall@1": 0.8333,
+      "recall@5": 0.8333,
+      "recall@10": 1.0,
+      "mrr": 0.8542,
+      "coverage@5": 0.8333,
+      "miss": 0
+    }
+  },
+  "details": [
+    {
+      "id": "q001",
+      "type": "single",
+      "expected": [
+        "2.2.5"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q002",
+      "type": "paraphrase",
+      "expected": [
+        "2.2.4"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.03226646035909653
+    },
+    {
+      "id": "q003",
+      "type": "paraphrase",
+      "expected": [
+        "2.2.6"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q004",
+      "type": "single",
+      "expected": [
+        "2.8.4.2"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.03226646035909653
+    },
+    {
+      "id": "q005",
+      "type": "paraphrase",
+      "expected": [
+        "2.8.4.3"
+      ],
+      "first_hit_rank": 2,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q006",
+      "type": "paraphrase",
+      "expected": [
+        "2.8.4.6"
+      ],
+      "first_hit_rank": null,
+      "top_score": 0.03128054738044739
+    },
+    {
+      "id": "q007",
+      "type": "single",
+      "expected": [
+        "2.3.1"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032522473484277725
+    },
+    {
+      "id": "q008",
+      "type": "paraphrase",
+      "expected": [
+        "2.3.5"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032522473484277725
+    },
+    {
+      "id": "q009",
+      "type": "paraphrase",
+      "expected": [
+        "2.3.3"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032522473484277725
+    },
+    {
+      "id": "q010",
+      "type": "paraphrase",
+      "expected": [
+        "2.5.11"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q011",
+      "type": "paraphrase",
+      "expected": [
+        "2.3.13"
+      ],
+      "first_hit_rank": 2,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q012",
+      "type": "paraphrase",
+      "expected": [
+        "2.2.3"
+      ],
+      "first_hit_rank": null,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q013",
+      "type": "single",
+      "expected": [
+        "2.7.5"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032522473484277725
+    },
+    {
+      "id": "q014",
+      "type": "single",
+      "expected": [
+        "2.3.16"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q015",
+      "type": "paraphrase",
+      "expected": [
+        "2.9.2.1"
+      ],
+      "first_hit_rank": 3,
+      "top_score": 0.03226646035909653
+    },
+    {
+      "id": "q016",
+      "type": "paraphrase",
+      "expected": [
+        "2.9.2.2"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q017",
+      "type": "paraphrase",
+      "expected": [
+        "2.8.1.8"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032522473484277725
+    },
+    {
+      "id": "q018",
+      "type": "single",
+      "expected": [
+        "2.8.1.7"
+      ],
+      "first_hit_rank": 8,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q019",
+      "type": "paraphrase",
+      "expected": [
+        "2.8.3.4"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q020",
+      "type": "paraphrase",
+      "expected": [
+        "2.9.4.5"
+      ],
+      "first_hit_rank": 2,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q021",
+      "type": "multi",
+      "expected": [
+        "2.9.6.1",
+        "2.9.6.2"
+      ],
+      "first_hit_rank": 1,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q022",
+      "type": "multi",
+      "expected": [
+        "2.8.4.2",
+        "2.3.5",
+        "2.2.5"
+      ],
+      "first_hit_rank": 3,
+      "top_score": 0.032786883413791656
+    },
+    {
+      "id": "q023",
+      "type": "negative",
+      "expected": [],
+      "first_hit_rank": null,
+      "top_score": 0.03177805617451668
+    },
+    {
+      "id": "q024",
+      "type": "negative",
+      "expected": [],
+      "first_hit_rank": null,
+      "top_score": 0.03226646035909653
+    }
+  ],
+  "negative": {
+    "n": 2,
+    "abstain_rate": 0.0,
+    "floor": 0.02
+  },
+  "meta": {
+    "at": "2026-11-02T13:33:02",
+    "n": 24,
+    "pool": 50,
+    "collection": "robot_manual_chunks_v20261102_1326",
+    "queries": "D:\\Projects\\robot_conde_agent\\eval\\queries.jsonl"
+  }
+}
