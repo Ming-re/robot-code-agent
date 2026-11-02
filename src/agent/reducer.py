@@ -1,18 +1,15 @@
 """状态字段怎么合并。
 
-messages 往后追加；chunks 按 chunk_id 合并，顺便做个 LRU 截断别让它无限长；
-completed 按 tool_call_id 记住跑过的工具，这样 interrupt 重放不会重复执行。
+messages 往后追加；chunks 按 chunk_id 合并，顺便做个 LRU 截断别让它无限长。
+
+这里以前还有个 merge_dict，用来存 completed[tool_call_id]（防 interrupt 重放）。
+后来发现那个记忆机制根本生效不了——它写回 state 的那一行在函数末尾，
+interrupt 抛异常时函数已经退出了。现在 ask 拆成独立节点，不需要记忆，
+merge_dict 也就一起删掉了。
 """
 
 # chunks 上下文上限：超过后淘汰最久未使用的（控制检查点体积与生成 prompt 长度）
 MAX_CONTEXT_CHUNKS = 24
-
-
-def merge_dict(left, right):
-    """普通的覆盖式合并（key 不相交时等价于并集）。"""
-    merged = dict(left or {})
-    merged.update(right or {})
-    return merged
 
 
 def merge_chunks(left, right):

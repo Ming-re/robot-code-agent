@@ -92,8 +92,10 @@ tests/                 单测
 - **pymilvus 升大版本后参数名变过**。`hybrid_search` 是 `ranker` 不是 `rerank`，
   `search` 要显式给 `anns_field`。装的时候按 `requirements.txt` 的下限来。
 - **LangGraph 的 interrupt 恢复会把整个节点从头重跑**，不是从中断那一行接着走。
-  所以 ask_user 之前做过的事（检索、生成、推送事件）会再来一遍。
-  我用 `completed[tool_call_id]` 记已执行过的工具来绕开，代价是检查点变大。
+  所以 interrupt 之前的副作用会再来一遍。我一开始用 `completed[tool_call_id]` 记已执行过的
+  工具来绕，后来发现那个记忆根本没生效——它写回 state 的那一行在函数末尾，而 interrupt
+  抛异常时函数已经退出了，那一行永远执行不到。现在改成把 ask 拆成独立节点：节点里只调
+  `interrupt()`，没有任何副作用，重放不花代价，也不用再记任何东西。
 - **FlagEmbedding 的 `colbert_score` 一次只吃一对**（单查询对单文档），
   候选多的时候得自己写循环逐对算。
 - **Milvus 刚写完马上 count 可能是 0**，Bounded 一致性下有可见性延迟，得 load 再重试。

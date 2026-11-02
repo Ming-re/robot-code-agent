@@ -1,14 +1,23 @@
-"""Agent 主图：agent 节点做决策，tools 节点执行，条件边路由。
+"""Agent 主图：agent 决策，tools 执行，ask 追问。
 
-    START -> agent -> tools -> agent -> ... -> END
+    START -> agent ─┬─ tools -> agent -> ...
+                    ├─ ask   -> agent -> ...
+                    └─ END
 
-两个坑记一下：
+为什么把 ask 单独拆成一个节点：
 
-1. chunks 要用 reducer 合并。一个 superstep 里可能同时跑好几个检索，
-   整体替换的话后写会把先写盖掉，而且一点报错都没有。
-2. interrupt 恢复的时候，整个 tools 节点会从头再跑一遍。节点里用
-   completed[tool_call_id] 记住执行过的工具，重放时直接拿结果，
-   否则检索会重查、生成会重跑。
+interrupt() 恢复时，LangGraph 会把**整个节点从头重跑**（检查点只存节点输出，
+不存"执行到哪一行"）。如果 ask 和检索待在同一个节点里，那么中断前的检索
+在恢复后会被重新执行一遍——查库重来、生成重烧一遍 token。
+
+以前是用 completed[tool_call_id] 记忆来绕的，但那个记忆本身是失效的：
+它写回 state 的那一行在函数末尾，而 interrupt 抛异常时函数直接退出了，
+那一行永远执行不到，所以它只在"不需要它的场景"里生效。
+
+拆开之后就简单了：ask 节点里只调 interrupt，没有任何副作用，重放它不花代价。
+
+chunks 仍然要挂 reducer：一个 superstep 里可能同时跑好几个检索，
+整体替换的话后写会把先写盖掉，而且一点报错都没有。
 
 emit 回调从 config["configurable"]["emit"] 取。
 """
@@ -19,13 +28,13 @@ import os
 from langchain_core.messages import ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
+from langgraph.types import interrupt
 from typing_extensions import Annotated, TypedDict
 
 from ..config import DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
-from .reducer import merge_chunks, merge_dict
+from .reducer import merge_chunks
 from .tools import TOOL_SCHEMAS, ToolExecutor
 
 AGENT_SYSTEM_PROMPT = """你是工业机器人编程智能体，目标：根据用户需求生成完整可运行的机器人程序。
@@ -59,18 +68,18 @@ AGENT_SYSTEM_PROMPT = """你是工业机器人编程智能体，目标：根据�
 class AgentState(TypedDict, total=False):
     """图状态。
 
-    messages  由 add_messages 归约（追加）
-    chunks    由 merge_chunks 归约（按 chunk_id 合并 + LRU 截断，重放幂等）
-    completed 由 merge_dict 归约（tool_call_id -> 上次执行结果，保证重放不重复执行）
+    messages    由 add_messages 归约（追加）
+    chunks      由 merge_chunks 归约（按 chunk_id 合并 + LRU 截断）
+    pending_ask 有待处理的追问：{"call_id": ..., "questions": [...]}
     其余字段整体替换。
     """
     messages: Annotated[list, add_messages]
     requirement: str
     code: str
     chunks: Annotated[dict, merge_chunks]
-    completed: Annotated[dict, merge_dict]
     tokens: tuple          # (prompt_tokens, completion_tokens)
     finished: bool
+    pending_ask: dict
 
 
 def _emit(config, event):
@@ -78,6 +87,15 @@ def _emit(config, event):
     emit = (config or {}).get("configurable", {}).get("emit")
     if emit:
         emit(event)
+
+
+def _pending_ask_call(state):
+    """从最后一条 AI 消息里找 ask_user 调用。"""
+    last = state["messages"][-1]
+    for tc in (getattr(last, "tool_calls", None) or []):
+        if tc["name"] == "ask_user":
+            return tc
+    return None
 
 
 def build_graph(executor: ToolExecutor):
@@ -96,70 +114,102 @@ def build_graph(executor: ToolExecutor):
         return {"messages": [resp]}
 
     async def tools_node(state: AgentState, config):
-        """执行节点: 执行上一条消息里的全部工具调用, 结果写回消息历史。
+        """执行节点: 执行本批次里除 ask_user 以外的全部工具。
 
-        - ask_user 排到最后：它会让整个节点重放，尽量缩小重放窗口；
-        - 已执行过的 tool_call_id 直接复用结果（重放安全，不重复产生副作用）；
-        - 同批次内后续工具能看到前面工具产生的上下文（local 状态）。
+        这个节点里不会有 interrupt，所以它不会被重放——不需要任何记忆机制。
         """
         last = state["messages"][-1]
-        calls = sorted(last.tool_calls,
-                       key=lambda tc: 1 if tc["name"] == "ask_user" else 0)
-        done = dict(state.get("completed") or {})
-        local = dict(state)
+        calls = [tc for tc in last.tool_calls if tc["name"] != "ask_user"]
+
+        local = dict(state)        # 同批次后续工具能看到前面工具产生的结果
         merged = {}
+        new_chunks = {}
         tool_msgs = []
 
         for tc in calls:
             call_id = tc["id"]
-            if call_id in done:                     # 节点重放: 复用上次结果
-                result = done[call_id]["result"]
-                updates = done[call_id]["updates"]
-            else:
-                _emit(config, {"type": "tool", "name": tc["name"],
-                               "args": tc.get("args", {}), "call_id": call_id})
-                try:
-                    result, updates, _ = await executor.execute(
-                        local, tc["name"], tc.get("args", {}),
-                        lambda evt: _emit(config, evt), call_id=call_id)
-                except GraphInterrupt:
-                    raise  # ask_user 的暂停信号, 交给 LangGraph, 不能吞掉
-                except Exception as e:
-                    result, updates = {"error": f"工具执行异常: {e}"}, {}
-                done[call_id] = {"result": result, "updates": updates}
+            _emit(config, {"type": "tool", "name": tc["name"],
+                           "args": tc.get("args", {}), "call_id": call_id})
+            try:
+                result, updates, _ = await executor.execute(
+                    local, tc["name"], tc.get("args", {}),
+                    lambda evt: _emit(config, evt), call_id=call_id)
+            except Exception as e:
+                result, updates = {"error": f"工具执行异常: {e}"}, {}
 
             tool_msgs.append(ToolMessage(
                 content=json.dumps(result, ensure_ascii=False),
                 tool_call_id=call_id))
             for key, value in (updates or {}).items():
                 if key == "chunks":
-                    merged["chunks"] = merge_chunks(merged.get("chunks"), value)
+                    new_chunks = merge_chunks(new_chunks, value)
                     local["chunks"] = merge_chunks(local.get("chunks"), value)
                 else:
                     merged[key] = value
                     local[key] = value
 
-        merged["messages"] = tool_msgs
-        merged["completed"] = done
-        return merged
+        out = {"messages": tool_msgs}
+        if new_chunks:
+            out["chunks"] = new_chunks
+        out.update(merged)
+
+        ask_call = _pending_ask_call(state)
+        if ask_call:
+            out["pending_ask"] = {"call_id": ask_call["id"],
+                                  "questions": ask_call["args"]["questions"]}
+        return out
+
+    async def ask_node(state: AgentState, config):
+        """追问节点: 只做两件事——推事件、挂起等回答。
+
+        这里故意不放任何副作用。interrupt 恢复时这个节点会从头重跑一遍，
+        但重跑只意味着"再调一次 interrupt"，不会再查库、再调模型。
+        """
+        pending = state.get("pending_ask") or {}
+        if not pending:
+            call = _pending_ask_call(state)
+            if call:
+                pending = {"call_id": call["id"],
+                           "questions": call["args"]["questions"]}
+
+        questions = pending.get("questions") or []
+        _emit(config, {"type": "ask", "questions": questions,
+                       "call_id": pending.get("call_id")})
+
+        answers = interrupt({"questions": questions})
+        return {
+            "messages": [ToolMessage(
+                content=json.dumps({"status": "已收到用户回答", "answers": answers},
+                                   ensure_ascii=False),
+                tool_call_id=pending["call_id"])],
+            "pending_ask": {},
+        }
 
     def route_after_agent(state: AgentState):
+        """有普通工具先去 tools；只有 ask 就单独走 ask；都没有就结束。"""
         last = state["messages"][-1]
-        if getattr(last, "tool_calls", None):
+        calls = getattr(last, "tool_calls", None) or []
+        if not calls:
+            return END
+        if any(tc["name"] != "ask_user" for tc in calls):
             return "tools"
-        return END
+        return "ask"
 
     def route_after_tools(state: AgentState):
         if state.get("finished"):
             return END
+        if state.get("pending_ask"):
+            return "ask"
         return "agent"
 
     graph = StateGraph(AgentState)
     graph.add_node("agent", agent_node)
     graph.add_node("tools", tools_node)
+    graph.add_node("ask", ask_node)
     graph.add_edge(START, "agent")
     graph.add_conditional_edges("agent", route_after_agent,
-                                {"tools": "tools", END: END})
+                                {"tools": "tools", "ask": "ask", END: END})
     graph.add_conditional_edges("tools", route_after_tools,
-                                {"agent": "agent", END: END})
+                                {"ask": "ask", "agent": "agent", END: END})
+    graph.add_edge("ask", "agent")
     return graph.compile(checkpointer=InMemorySaver())

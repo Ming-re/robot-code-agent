@@ -1,14 +1,13 @@
 """8 个工具的定义和执行器。
 
 工具由 graph 里的 tools 节点执行，状态从 AgentState 传进来。
-ask_user 里调 interrupt() 把图挂起，用户回答后用 Command(resume=...) 接着跑。
+ask_user 不在这里执行——它由 graph.py 的 ask 节点处理（那边只调 interrupt，
+没有副作用，所以 interrupt 恢复重放时不会有任何代价）。
 
 工具结果是给模型看的，chunk 只放预览，要全文让它自己 read_chunk 取，省 token。
 """
 
 import asyncio
-
-from langgraph.types import interrupt
 
 from ..embedding.bge_m3 import BgeM3Encoder
 
@@ -105,11 +104,10 @@ class ToolExecutor:
         if name == "read_chunk":
             return self._read_chunk(args), {}, False
         if name == "ask_user":
-            questions = args["questions"]
-            emit({"type": "ask", "questions": questions, "call_id": call_id})
-            # LangGraph 人机协同: 暂停图, 用户回答后从此处恢复
-            answers = interrupt({"questions": questions})
-            return {"status": "已收到用户回答", "answers": answers}, {}, False
+            # ask_user 由 graph.py 的 ask 节点处理：那个节点里只调 interrupt，
+            # 没有任何副作用，所以重放不花代价。
+            # 走到这里说明路由写错了，直接炸掉，不要静默兜底。
+            raise RuntimeError("ask_user 不应该进工具执行器，请检查 graph 的路由")
         if name == "generate_code":
             result, updates = await self._generate(state, args, emit)
             return result, updates, False

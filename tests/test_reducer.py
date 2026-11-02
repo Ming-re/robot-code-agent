@@ -2,7 +2,7 @@
 
 import unittest
 
-from src.agent.reducer import MAX_CONTEXT_CHUNKS, merge_chunks, merge_dict
+from src.agent.reducer import MAX_CONTEXT_CHUNKS, merge_chunks
 
 
 def entity(cid):
@@ -44,12 +44,6 @@ class MergeChunksTest(unittest.TestCase):
     def test_handles_none(self):
         self.assertEqual(merge_chunks(None, {"a": entity("a")}), {"a": entity("a")})
         self.assertEqual(merge_chunks({"a": entity("a")}, None), {"a": entity("a")})
-
-
-class MergeDictTest(unittest.TestCase):
-    def test_merge(self):
-        self.assertEqual(merge_dict({"a": 1}, {"b": 2}), {"a": 1, "b": 2})
-        self.assertEqual(merge_dict(None, {"b": 2}), {"b": 2})
 
 
 if __name__ == "__main__":
