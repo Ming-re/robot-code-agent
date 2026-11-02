@@ -13,6 +13,9 @@ data/alias_history.json
 # 工艺需求样本（写的是我自己那台机器的流程）
 data/demo_requirement.txt
 
+# Milvus 的数据目录（bind mount 到项目下），里面有切块全文，等同手册副本
+volumes/
+
 # 运行产物
 eval/reports/
 *.log
