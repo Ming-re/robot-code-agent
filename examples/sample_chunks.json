@@ -1,0 +1,187 @@
+[
+  {
+    "chunk_id": "1",
+    "heading": "1 概述",
+    "title": "概述",
+    "level": 1,
+    "path": [
+      "1 概述"
+    ],
+    "pages": [
+      1,
+      2
+    ],
+    "char_count": 126,
+    "text": "1 概述\n\n定义\n这是一份虚构的示例手册，只用来跑通检索流程，不对应任何真实产品的指令集。\n\n说明\n指令按“运动 / IO / 通讯 / 流程”四类组织，每条都带定义、格式、参数、返回值、\n说明和程序示例。字段结构跟真实手册切出来的 chunk 一致。"
+  },
+  {
+    "chunk_id": "2.1.1",
+    "heading": "2.1.1 MoveJ 指令",
+    "title": "MoveJ 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.1 运动指令",
+      "2.1.1 MoveJ 指令"
+    ],
+    "pages": [
+      12,
+      12
+    ],
+    "char_count": 233,
+    "text": "2 指令详解 > 2.1 运动指令 > 2.1.1 MoveJ 指令\n\n定义\n关节插补运动到目标点。\n\n格式\n```\nMoveJ(point, speed)\n```\n\n参数\npoint —— 目标点位变量\nspeed —— 速度百分比，int 类型，范围 1~100\n\n返回值\n无\n\n说明\n走关节插补，轨迹不保证是直线。适合大范围转移，不适合靠近工件时的精定位。\n\n程序示例\n```\nfunc main()\nMoveJ(PHome, 60)\nend func\n```"
+  },
+  {
+    "chunk_id": "2.1.2",
+    "heading": "2.1.2 MoveL 指令",
+    "title": "MoveL 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.1 运动指令",
+      "2.1.2 MoveL 指令"
+    ],
+    "pages": [
+      13,
+      13
+    ],
+    "char_count": 234,
+    "text": "2 指令详解 > 2.1 运动指令 > 2.1.2 MoveL 指令\n\n定义\n直线插补运动到目标点。\n\n格式\n```\nMoveL(point, speed)\n```\n\n参数\npoint —— 目标点位变量\nspeed —— 速度百分比，int 类型，范围 1~100\n\n返回值\n无\n\n说明\n轨迹是直线，途经点会精确经过。取放料的接近段用这个，避免撞到治具。\n\n程序示例\n```\nfunc main()\nMoveL(PApproach, 20)\nend func\n```"
+  },
+  {
+    "chunk_id": "2.1.3",
+    "heading": "2.1.3 MoveRel 指令",
+    "title": "MoveRel 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.1 运动指令",
+      "2.1.3 MoveRel 指令"
+    ],
+    "pages": [
+      14,
+      15
+    ],
+    "char_count": 318,
+    "text": "2 指令详解 > 2.1 运动指令 > 2.1.3 MoveRel 指令\n\n定义\n相对当前位置做偏移运动。\n\n格式\n```\nMoveRel(point, offset, speed)\n```\n\n参数\npoint —— 基准点位变量\noffset —— 偏移量，[dx, dy, dz, rx, ry, rz]，基于工具坐标系\nspeed —— 速度百分比，int 类型，范围 1~100\n\n返回值\n无\n\n说明\n偏移量的单位跟当前坐标系一致。用来做“抬起 50mm”这类相对动作比较方便。\n\n程序示例\n```\nfunc main()\nMoveRel(PHome, [0, 0, 50, 0, 0, 0], 30)\nend func\n```"
+  },
+  {
+    "chunk_id": "2.2.1",
+    "heading": "2.2.1 ReadDI 指令",
+    "title": "ReadDI 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.2 IO 指令",
+      "2.2.1 ReadDI 指令"
+    ],
+    "pages": [
+      20,
+      20
+    ],
+    "char_count": 234,
+    "text": "2 指令详解 > 2.2 IO 指令 > 2.2.1 ReadDI 指令\n\n定义\n读一个数字输入点。\n\n格式\n```\nA=ReadDI(index)\n```\n\n参数\nindex —— 输入点编号，int 类型，范围 0~63\n\n返回值\nA —— 0 或 1\n\n说明\n读的是控制器输入映像区，每个扫描周期末刷新一次。\n同一个周期内连续读多次，拿到的值是一样的。\n\n程序示例\n```\nfunc main()\nVAR x=0\nx=ReadDI(3)\nend func\n```"
+  },
+  {
+    "chunk_id": "2.2.2",
+    "heading": "2.2.2 WriteDO 指令",
+    "title": "WriteDO 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.2 IO 指令",
+      "2.2.2 WriteDO 指令"
+    ],
+    "pages": [
+      21,
+      21
+    ],
+    "char_count": 229,
+    "text": "2 指令详解 > 2.2 IO 指令 > 2.2.2 WriteDO 指令\n\n定义\n写一个数字输出点。\n\n格式\n```\nWriteDO(index, value)\n```\n\n参数\nindex —— 输出点编号，int 类型，范围 0~63\nvalue —— 0 或 1\n\n返回值\n无\n\n说明\n写入立即生效，不要用它去驱动需要时序配合的气缸，动作逻辑放程序里做。\n\n程序示例\n```\nfunc main()\nWriteDO(5, 1)\nend func\n```"
+  },
+  {
+    "chunk_id": "2.3.1",
+    "heading": "2.3.1 ReadReg 指令",
+    "title": "ReadReg 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.3 通讯指令",
+      "2.3.1 ReadReg 指令"
+    ],
+    "pages": [
+      33,
+      33
+    ],
+    "char_count": 255,
+    "text": "2 指令详解 > 2.3 通讯指令 > 2.3.1 ReadReg 指令\n\n定义\n读取单个寄存器的值。\n\n格式\n```\nA=ReadReg(address)\n```\n\n参数\naddress —— 寄存器地址，int 类型，范围 0~255\n\n返回值\nA —— 寄存器当前值，int 类型\n\n说明\n通信链路异常时返回上一次的缓存值，不会抛错。需要判断数据是否新鲜的话，\n在协议里自己带一个自增序号。\n\n程序示例\n```\nfunc main()\nVAR v=0\nv=ReadReg(10)\nend func\n```"
+  },
+  {
+    "chunk_id": "2.3.2",
+    "heading": "2.3.2 WriteReg 指令",
+    "title": "WriteReg 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.3 通讯指令",
+      "2.3.2 WriteReg 指令"
+    ],
+    "pages": [
+      34,
+      34
+    ],
+    "char_count": 246,
+    "text": "2 指令详解 > 2.3 通讯指令 > 2.3.2 WriteReg 指令\n\n定义\n写单个寄存器。\n\n格式\n```\nWriteReg(address, value)\n```\n\n参数\naddress —— 寄存器地址，int 类型，范围 0~255\nvalue —— 写入值，int 类型\n\n返回值\n无\n\n说明\n写入是异步的，函数返回不代表对端已经收到。要确认生效，紧接着调 WaitReg。\n\n程序示例\n```\nfunc main()\nWriteReg(10, 1)\nend func\n```"
+  },
+  {
+    "chunk_id": "2.3.3",
+    "heading": "2.3.3 WaitReg 指令",
+    "title": "WaitReg 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.3 通讯指令",
+      "2.3.3 WaitReg 指令"
+    ],
+    "pages": [
+      35,
+      36
+    ],
+    "char_count": 313,
+    "text": "2 指令详解 > 2.3 通讯指令 > 2.3.3 WaitReg 指令\n\n定义\n阻塞等待寄存器变成指定值。\n\n格式\n```\nWaitReg(address, value, timeout)\n```\n\n参数\naddress —— 寄存器地址，int 类型\nvalue —— 期望值，int 类型\ntimeout —— 超时毫秒数，int 类型，-1 表示一直等\n\n返回值\n0 表示等到，-1 表示超时\n\n说明\n超时之后不会自动报警，也不会自动停。调用方必须自己判断返回值，\n否则一次握手失败会被当成成功继续往下跑。\n\n程序示例\n```\nfunc main()\nWaitReg(11, 1, 3000)\nend func\n```"
+  },
+  {
+    "chunk_id": "2.4.1",
+    "heading": "2.4.1 Sleep 指令",
+    "title": "Sleep 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.4 流程指令",
+      "2.4.1 Sleep 指令"
+    ],
+    "pages": [
+      40,
+      40
+    ],
+    "char_count": 193,
+    "text": "2 指令详解 > 2.4 流程指令 > 2.4.1 Sleep 指令\n\n定义\n延时指定毫秒数。\n\n格式\n```\nSleep(ms)\n```\n\n参数\nms —— 毫秒数，int 类型，范围 0~60000\n\n返回值\n无\n\n说明\n延时期间不响应新的运动指令。节拍敏感的地方不要用这个，改用条件等待。\n\n程序示例\n```\nfunc main()\nSleep(500)\nend func\n```"
+  },
+  {
+    "chunk_id": "2.4.2",
+    "heading": "2.4.2 Log 指令",
+    "title": "Log 指令",
+    "level": 3,
+    "path": [
+      "2 指令详解",
+      "2.4 流程指令",
+      "2.4.2 Log 指令"
+    ],
+    "pages": [
+      41,
+      41
+    ],
+    "char_count": 189,
+    "text": "2 指令详解 > 2.4 流程指令 > 2.4.2 Log 指令\n\n定义\n往控制器日志区写一条文本。\n\n格式\n```\nLog(text)\n```\n\n参数\ntext —— 字符串\n\n返回值\n无\n\n说明\n日志区容量有限，写满之后最早的记录会被覆盖。调试用，别用来存业务数据。\n\n程序示例\n```\nfunc main()\nLog(\"cycle start\")\nend func\n```"
+  }
+]

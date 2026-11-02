@@ -1,0 +1,24 @@
+{"id": "q001", "query": "伺服上电用什么指令", "expected_titles": ["MotorOn 函数"], "type": "single", "notes": "需求说\"上电\"、手册写\"MotorOn\"，测 dense 的改述能力"}
+{"id": "q002", "query": "怎么把伺服关掉", "expected_titles": ["MotorOff 函数"], "type": "paraphrase", "notes": "口语化 + 同族干扰（MotorOn/MotorState）"}
+{"id": "q003", "query": "怎么判断伺服当前是开还是关", "expected_titles": ["MotorState 函数"], "type": "paraphrase", "notes": "与 MotorOn/Off 语义相邻，考区分度"}
+{"id": "q004", "query": "读 PLC 寄存器里的值", "expected_titles": ["ReadPortRegister 函数"], "type": "single", "notes": "术语精确匹配，sparse 应当强命中"}
+{"id": "q005", "query": "往 PLC 某个地址写一个值", "expected_titles": ["WritePortRegister 函数"], "type": "paraphrase", "notes": "读写对偶，考排序是否把 write 排前面"}
+{"id": "q006", "query": "等 PLC 回一个信号再往下走", "expected_titles": ["WaitPortRegister 函数"], "type": "paraphrase", "notes": "握手语义，字面没有\"等待\"关键词"}
+{"id": "q007", "query": "点到点的关节运动指令怎么写", "expected_titles": ["PTP 函数"], "type": "single", "notes": "中文全称 vs 缩写 PTP"}
+{"id": "q008", "query": "让机器人走直线", "expected_titles": ["Line 函数"], "type": "paraphrase", "notes": "测能否召回 Line 而不是 PTP"}
+{"id": "q009", "query": "相对当前位置偏移一段距离运动", "expected_titles": ["PtpRel 函数"], "type": "paraphrase", "notes": "\"相对/偏移\"是 PtpRel 与 LineRel 的共用语义"}
+{"id": "q010", "query": "怎么定义一个示教点位变量", "expected_titles": ["Point 函数"], "type": "paraphrase", "notes": "项目代码里写 point(\"PHome\")，手册标题是 Point 函数"}
+{"id": "q011", "query": "调速度倍率", "expected_titles": ["DynOver 函数"], "type": "paraphrase", "notes": "现场口径\"倍率\"，手册口径 DynOver"}
+{"id": "q012", "query": "算一段流程花了多少毫秒", "expected_titles": ["TimeStamp 函数"], "type": "paraphrase", "notes": "节拍计算，考与 Time 函数的区分（易混）"}
+{"id": "q013", "query": "在程序里打印日志", "expected_titles": ["LogMsg 函数"], "type": "single", "notes": "高频指令"}
+{"id": "q014", "query": "程序延时等待", "expected_titles": ["WaitTime 函数"], "type": "single", "notes": "与 WaitPortRegister 易混，考区分度"}
+{"id": "q015", "query": "起一个后台线程一直跑", "expected_titles": ["Exec 函数"], "type": "paraphrase", "notes": "项目里 exec(kuai) 起上传线程"}
+{"id": "q016", "query": "报警之后让程序挂起", "expected_titles": ["Suspend 函数"], "type": "paraphrase", "notes": "安全相关，execjz1 里大量使用"}
+{"id": "q017", "query": "读一个数字输入信号", "expected_titles": ["In 函数"], "type": "paraphrase", "notes": "单字符函数名，考词表与标题匹配"}
+{"id": "q018", "query": "输出一个数字信号", "expected_titles": ["Out 函数"], "type": "single", "notes": "单字符函数名"}
+{"id": "q019", "query": "串口通讯的参数怎么配置", "expected_titles": ["ComConfig 函数"], "type": "paraphrase", "notes": "通讯族：OpenCom/CloseCom/ComConfig 三者相邻"}
+{"id": "q020", "query": "传送带上抓取跟踪", "expected_titles": ["TrPtp 函数"], "type": "paraphrase", "notes": "传送带族指令，考能否命中 TrPtp 而非 Pallet"}
+{"id": "q021", "query": "托盘码垛怎么排点位", "expected_titles": ["Pallet 函数", "PalletPos 函数"], "type": "multi", "notes": "同族两条都算对，看 coverage"}
+{"id": "q022", "query": "读 PLC 取料信号后让机器人走直线到取料点，先开伺服", "expected_titles": ["ReadPortRegister 函数", "Line 函数", "MotorOn 函数"], "type": "multi", "notes": "多意图长查询，直接对应需求里的一句；用 coverage@5 衡量覆盖面"}
+{"id": "q023", "query": "机器人怎么做激光焊接", "expected_titles": [], "type": "negative", "notes": "手册没有焊接指令；正确行为是低分/拒答，而不是硬凑一条最像的"}
+{"id": "q024", "query": "把机器人接到 MySQL 数据库查订单", "expected_titles": [], "type": "negative", "notes": "完全跨域，测幻觉式检索"}
