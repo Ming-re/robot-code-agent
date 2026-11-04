@@ -206,9 +206,11 @@ class ToolExecutor:
         except Exception as e:
             return {"error": f"生成失败: {e}"}, {}
         code = "".join(parts)
+        prev_in, prev_out = state.get("tokens") or (0, 0)
+        total = (prev_in + tokens[0], prev_out + tokens[1])
         return ({"status": "生成完成", "code_length": len(code),
-                 "tokens": {"prompt": tokens[0], "completion": tokens[1]}},
-                {"code": code, "tokens": tokens})
+                 "tokens": {"prompt": total[0], "completion": total[1]}},
+                {"code": code, "tokens": total})
 
     @staticmethod
     def _as_chunk(entity):

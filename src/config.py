@@ -33,6 +33,19 @@ RERANK_POOL_K = 50
 MAX_CONTEXT_CHUNKS = 24       # 会话内累积 chunk 上限（超出按 LRU 淘汰）
 SESSION_TTL_SECONDS = 2 * 3600  # 服务端会话元信息保留时长
 
+# ---- 循环与成本控制 ----
+# LangGraph 单会话最大步数。默认 25，一次 agent+tools 循环占 2 步，
+# 十来轮工具调用就撞墙，报出来还只是一句 GraphRecursionError。
+RECURSION_LIMIT = 60
+# 检索类工具调用上限。超了直接拒绝执行，逼模型进入生成，
+# 避免"检索不满意就换个词再试"这种烧钱循环。
+MAX_RETRIEVE_CALLS = 12
+RETRIEVAL_TOOLS = ("retrieve_chunks", "search_section")
+# 用量记账：供应商后台分不清哪部分是 Agent 花的，只能自己在应用侧记。
+USAGE_LOG = DATA_DIR / "generated" / "usage.log"
+COST_PER_M_INPUT = 2.0        # 元/百万 token，按 DeepSeek 价位粗算
+COST_PER_M_OUTPUT = 8.0
+
 # ---- LLM 代码生成 (DeepSeek) ----
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEEPSEEK_MODEL = "deepseek-chat"

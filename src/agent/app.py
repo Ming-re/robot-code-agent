@@ -39,10 +39,14 @@ from src.config import (
     API_PORT,
     CHUNKS_JSON,
     COLLECTION_NAME,
+    COST_PER_M_INPUT,
+    COST_PER_M_OUTPUT,
     EMBEDDING_MODEL_DIR,
     GENERATED_CODE_DIR,
     MILVUS_URI,
+    RECURSION_LIMIT,
     SESSION_TTL_SECONDS,
+    USAGE_LOG,
 )
 from src.embedding.bge_m3 import BgeM3Encoder
 from src.milvus_store import MilvusStore
@@ -117,6 +121,26 @@ def _sse(payload):
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
+def log_usage(session_id, prompt_tokens, completion_tokens, values=None):
+    """记一笔用量。供应商后台分不清哪部分是 Agent 花的，只能自己记。
+
+    一行一条，追加到 data/generated/usage.log（该目录已被 gitignore）。
+    """
+    cost = (prompt_tokens / 1e6 * COST_PER_M_INPUT
+            + completion_tokens / 1e6 * COST_PER_M_OUTPUT)
+    code_len = len((values or {}).get("code") or "")
+    line = (f"{datetime.now():%Y-%m-%d %H:%M:%S} session={session_id} "
+            f"in={prompt_tokens} out={completion_tokens} "
+            f"cost≈{cost:.4f}元 code_chars={code_len}")
+    print(f"[用量] {line}", flush=True)
+    try:
+        USAGE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with USAGE_LOG.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
+
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     """发起/恢复 Agent 会话: SSE 输出 Agent 执行轨迹。"""
@@ -163,7 +187,9 @@ async def chat(req: ChatRequest):
                 session.seen_calls.add(call_id)
             queue.put_nowait(evt)
 
-        cfg = {"configurable": {"thread_id": session.id, "emit": emit}}
+        cfg = {"configurable": {"thread_id": session.id, "emit": emit},
+               # 默认 25 步，十来轮工具调用就撞墙，而且只报一句 GraphRecursionError
+               "recursion_limit": RECURSION_LIMIT}
 
         async def runner():
             try:
@@ -181,6 +207,13 @@ async def chat(req: ChatRequest):
             except Exception as e:
                 emit({"type": "error", "message": f"Agent 执行异常: {e}"})
             finally:
+                # 记一笔用量：这一轮到底花了多少 token、有没有产出代码
+                try:
+                    snap = await graph.aget_state(cfg)
+                    tin, tout = (snap.values or {}).get("tokens") or (0, 0)
+                    log_usage(session.id, tin, tout, snap.values)
+                except Exception:
+                    pass
                 queue.put_nowait(None)  # 结束哨兵
 
         async def heartbeat():

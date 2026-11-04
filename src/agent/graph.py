@@ -33,7 +33,12 @@ from langgraph.graph.message import add_messages
 from langgraph.types import interrupt
 from typing_extensions import Annotated, TypedDict
 
-from ..config import DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from ..config import (
+    DEEPSEEK_BASE_URL,
+    DEEPSEEK_MODEL,
+    MAX_RETRIEVE_CALLS,
+    RETRIEVAL_TOOLS,
+)
 from .reducer import merge_chunks
 from .tools import TOOL_SCHEMAS, ToolExecutor
 
@@ -77,7 +82,8 @@ class AgentState(TypedDict, total=False):
     requirement: str
     code: str
     chunks: Annotated[dict, merge_chunks]
-    tokens: tuple          # (prompt_tokens, completion_tokens)
+    tokens: tuple          # (prompt_tokens, completion_tokens) 累计
+    tool_count: int        # 检索类工具已经调用了几次（用于封顶）
     finished: bool
     pending_ask: dict
 
@@ -109,9 +115,19 @@ def build_graph(executor: ToolExecutor):
     ).bind_tools(TOOL_SCHEMAS)
 
     async def agent_node(state: AgentState):
-        """决策节点: LLM 观察历史, 决定下一步（文字或工具调用）。"""
+        """决策节点: LLM 观察历史, 决定下一步（文字或工具调用）。
+
+        顺便把这一轮的 token 累加进 state。决策阶段才是花钱的大头：
+        每轮都要重读全部历史，十几轮下来 input 是 O(n²) 增长的。
+        """
         resp = await llm.ainvoke(state["messages"])
-        return {"messages": [resp]}
+        usage = getattr(resp, "usage_metadata", None) or {}
+        prev_in, prev_out = state.get("tokens") or (0, 0)
+        return {
+            "messages": [resp],
+            "tokens": (prev_in + int(usage.get("input_tokens", 0) or 0),
+                       prev_out + int(usage.get("output_tokens", 0) or 0)),
+        }
 
     async def tools_node(state: AgentState, config):
         """执行节点: 执行本批次里除 ask_user 以外的全部工具。
@@ -125,17 +141,30 @@ def build_graph(executor: ToolExecutor):
         merged = {}
         new_chunks = {}
         tool_msgs = []
+        used = int(state.get("tool_count") or 0)      # 检索类工具已经用了几次
 
         for tc in calls:
             call_id = tc["id"]
             _emit(config, {"type": "tool", "name": tc["name"],
                            "args": tc.get("args", {}), "call_id": call_id})
-            try:
-                result, updates, _ = await executor.execute(
-                    local, tc["name"], tc.get("args", {}),
-                    lambda evt: _emit(config, evt), call_id=call_id)
-            except Exception as e:
-                result, updates = {"error": f"工具执行异常: {e}"}, {}
+
+            # 检索次数封顶：超了就不执行，直接把"该生成了"塞回给模型。
+            # 不封顶它会一直换查询词重试，token 全烧在无效检索上。
+            if tc["name"] in RETRIEVAL_TOOLS and used >= MAX_RETRIEVE_CALLS:
+                result, updates = {
+                    "error": f"检索次数已达上限（{MAX_RETRIEVE_CALLS} 次）。"
+                             "不要再检索，请立刻调用 generate_code 生成程序；"
+                             "没确认的指令在 finish 时说明。"
+                }, {}
+            else:
+                try:
+                    result, updates, _ = await executor.execute(
+                        local, tc["name"], tc.get("args", {}),
+                        lambda evt: _emit(config, evt), call_id=call_id)
+                except Exception as e:
+                    result, updates = {"error": f"工具执行异常: {e}"}, {}
+                if tc["name"] in RETRIEVAL_TOOLS:
+                    used += 1
 
             tool_msgs.append(ToolMessage(
                 content=json.dumps(result, ensure_ascii=False),
@@ -151,7 +180,13 @@ def build_graph(executor: ToolExecutor):
         out = {"messages": tool_msgs}
         if new_chunks:
             out["chunks"] = new_chunks
+        out["tool_count"] = used
         out.update(merged)
+
+        # 每轮把累计用量推给前端/日志，钱花在哪要看得见
+        tin, tout = state.get("tokens") or (0, 0)
+        _emit(config, {"type": "usage", "prompt": tin,
+                       "completion": tout, "tool_calls": used})
 
         ask_call = _pending_ask_call(state)
         if ask_call:
