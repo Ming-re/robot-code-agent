@@ -57,7 +57,8 @@ SYSTEM_PROMPT = """你是资深工业机器人编程专家，精通《机器人�
    相对偏移; 运动带速度参数(Mptp/MLine 变量)
 7. 日志: 关键流程 logmsg(time(),"进入取料") 记录, 节拍用 TimeStamp() 计算;
    后台持续上传信号用 exec(线程函数)(while true do ... waittime 循环)
-8. 变量命名 M 前缀 + 含义(如 MPick1/Mxizui_OK/MPhoto); 缺失细节用合理默认值并标 // TODO: 现场确认
+8. 变量命名 M 前缀 + 含义(如 MPick1/Mxizui_OK/MPhoto); 自定义函数名可按语义自行取,
+   但必须先 func 定义、再调用; 缺失细节用合理默认值并标 // TODO: 现场确认
 9. 只输出程序代码, 不要解释文字和 markdown 围栏
 """
 
@@ -152,7 +153,7 @@ class CodeGenerator:
         """不随请求变化的参考代码块（放在 prompt 最前面，便于命中前缀缓存）。"""
         if not self._ref_code:
             return ""
-        return ("## 项目参考代码（同机型现有生产程序, 结构/命名/指令习惯严格参照）\n"
+        return ("## 项目参考代码（同机型现有生产程序，结构、指令用法、命名习惯均参照下面的写法）\n"
                 f"{self._ref_code}")
 
     def _build_messages(self, requirement, chunks):
